@@ -26,9 +26,9 @@ var WebGLRenderer = function(options) {
 	var vertexAttr = null;
 
 	// Init buffers
-	var vertexBuffer = gl.createBuffer();
+	this.vertexBuffer = gl.createBuffer();
 	var vertexCoords = new Float32Array([0, 0, 0, 1, 1, 0, 1, 1]);
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 	gl.bufferData(gl.ARRAY_BUFFER, vertexCoords, gl.STATIC_DRAW);
 
 	// Setup the main YCrCbToRGBA shader
@@ -55,6 +55,19 @@ var WebGLRenderer = function(options) {
 	gl.vertexAttribPointer(vertexAttr, 2, gl.FLOAT, false, 0, 0);
 
 	this.shouldCreateUnclampedViews = !this.allowsClampedTextureData();
+};
+
+WebGLRenderer.prototype.destroy = function() {
+	var gl = this.gl;
+	
+	gl.deleteTexture(this.textureY);
+	gl.deleteTexture(this.textureCb);
+	gl.deleteTexture(this.textureCr);
+
+	gl.deleteProgram(this.program);
+	gl.deleteProgram(this.loadingProgram);
+
+	gl.deleteBuffer(this.vertexBuffer);
 };
 
 WebGLRenderer.prototype.resize = function(width, height) {
@@ -121,8 +134,12 @@ WebGLRenderer.prototype.allowsClampedTextureData = function() {
 
 WebGLRenderer.prototype.renderProgress = function(progress) {
 	var gl = this.gl;
+
+	gl.useProgram(this.loadingProgram);
+
 	var loc = gl.getUniformLocation(this.loadingProgram, 'progress');
 	gl.uniform1f(loc, progress);
+	
 	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 };
 
@@ -144,7 +161,9 @@ WebGLRenderer.prototype.render = function(y, cb, cr) {
 		y = new Uint8Array(y.buffer),
 		cb = new Uint8Array(cb.buffer),
 		cr = new Uint8Array(cr.buffer);	
-	}	
+	}
+
+	gl.useProgram(this.program);
 
 	this.updateTexture(gl.TEXTURE0, this.textureY, w, h, y);
 	this.updateTexture(gl.TEXTURE1, this.textureCb, w2, h2, cb);
@@ -188,17 +207,19 @@ WebGLRenderer.SHADER = {
 		'uniform sampler2D textureCr;',
 		'varying vec2 texCoord;',
 
+		'mat4 rec601 = mat4(',
+			'1.16438,  0.00000,  1.59603, -0.87079,',
+			'1.16438, -0.39176, -0.81297,  0.52959,',
+			'1.16438,  2.01723,  0.00000, -1.08139,',
+			'0, 0, 0, 1',
+		');',
+
 		'void main() {',
 			'float y = texture2D(textureY, texCoord).r;',
-			'float cb = texture2D(textureCb, texCoord).r - 0.5;',
-			'float cr = texture2D(textureCr, texCoord).r - 0.5;',
+			'float cb = texture2D(textureCb, texCoord).r;',
+			'float cr = texture2D(textureCr, texCoord).r;',
 
-			'gl_FragColor = vec4(',
-				'y + 1.4 * cb,',
-				'y + -0.343 * cr - 0.711 * cb,',
-				'y + 1.765 * cr,',
-				'1.0',
-			');',
+			'gl_FragColor = vec4(y, cr, cb, 1.0) * rec601;',
 		'}'
 	].join('\n'),
 

@@ -3,7 +3,11 @@ JSMpeg.Player = (function(){ "use strict";
 var Player = function(url, options) {
 	this.options = options || {};
 
-	if (url.match(/^wss?:\/\//)) {
+	if (options.source) {
+		this.source = new options.source(url, options);
+		options.streaming = !!this.source.streaming;
+	}
+	else if (url.match(/^wss?:\/\//)) {
 		this.source = new JSMpeg.Source.WebSocket(url, options);
 		options.streaming = true;
 	}
@@ -104,6 +108,13 @@ Player.prototype.stop = function(ev) {
 	if (this.video && this.options.decodeFirstFrame !== false) {
 		this.video.decode();
 	}
+};
+
+Player.prototype.destroy = function() {
+	this.pause();
+	this.source.destroy();
+	this.renderer.destroy();
+	this.audioOut.destroy();
 };
 
 Player.prototype.seek = function(time) {

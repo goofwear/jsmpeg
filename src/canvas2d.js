@@ -9,6 +9,10 @@ var CanvasRenderer = function(options) {
 	this.context = this.canvas.getContext('2d');
 };
 
+CanvasRenderer.prototype.destroy = function() {
+	// Nothing to do here
+};
+
 CanvasRenderer.prototype.resize = function(width, height) {
 	this.width = width|0;
 	this.height = height|0;
@@ -17,7 +21,7 @@ CanvasRenderer.prototype.resize = function(width, height) {
 	this.canvas.height = this.height;
 
 	this.imageData = this.context.getImageData(0, 0, this.width, this.height);
-	this.imageData.data.fill(255);
+	JSMpeg.Fill(this.imageData.data, 255);
 };
 
 CanvasRenderer.prototype.renderProgress = function(progress) {
